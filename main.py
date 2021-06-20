@@ -1,21 +1,36 @@
 import datetime
 
 from flask import Flask, render_template
+from google.cloud import datastore
+
+datastore_client = datastore.Client()
 
 app = Flask(__name__)
 
 
+def store_time(dt):
+    entity = datastore.Entity(key=datastore_client.key("visit"))
+    entity["timestamp"] = dt
+    datastore_client.put(entity)
+
+
+def fetch_times(limit):
+    query = datastore_client.query(kind="visit")
+    query.order = ["-timestamp"]
+
+    times = query.fetch(limit=limit)
+    return times
+
+
 @app.route("/")
 def root():
-    # Use static data to inflate the template
-    # This will be replaced at a later stage
-    dummy_times = [
-        datetime.datetime(2021, 1, 1, 10, 0, 0),
-        datetime.datetime(2021, 1, 3, 10, 30, 0),
-        datetime.datetime(2021, 1, 3, 11, 0, 0),
-    ]
+    # Store the current time in Datastore (new visit)
+    store_time(datetime.datetime.now())
 
-    return render_template("index.html", times=dummy_times)
+    # Get the most recent 10 access times
+    times = fetch_times(10)
+
+    return render_template("index.html", times=times)
 
 
 if __name__ == "__main__":
